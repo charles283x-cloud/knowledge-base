@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}文档列表{% endblock %}
+
+{% block content %}
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+    <h1 class="text-2xl font-bold text-gray-800">文档列表</h1>
+    <div class="flex items-center gap-3 w-full sm:w-auto">
+        <form method="GET" class="flex-1 sm:flex-initial">
+            <div class="relative">
+                <input type="text" name="q" value="{{ search }}" placeholder="搜索文档..."
+                    class="w-full sm:w-64 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-se-500 focus:border-se-500 outline-none transition">
+                <svg class="absolute left-3 top-2.5 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+            </div>
+        </form>
+        <a href="{{ url_for('upload') }}"
+            class="inline-flex items-center px-4 py-2 bg-se-500 hover:bg-se-600 text-white font-medium rounded-lg transition shadow-sm whitespace-nowrap">
+            <svg class="w-5 h-5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            上传
+        </a>
+    </div>
+</div>
+
+{% if search %}
+<div class="mb-4 text-sm text-gray-500">
+    搜索 "{{ search }}" 的结果（{{ documents|length }} 条）
+    <a href="{{ url_for('index') }}" class="text-se-500 hover:underline ml-2">清除搜索</a>
+</div>
+{% endif %}
+
+{% if documents %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">文档名称</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">类型</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">大小</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">上传者</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">上传时间</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                {% for doc in documents %}
+                <tr class="hover:bg-gray-50 transition">
+                    <td class="px-6 py-4">
+                        <div class="flex items-center">
+                            {% if doc.file_type == 'word' %}
+                            <span class="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-blue-50 text-blue-600 mr-3 flex-shrink-0">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 2a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6H6zm7 1.5L18.5 9H13V3.5zM8 13h8v1.5H8V13zm0 3h8v1.5H8V16zm0-6h3v1.5H8V10z"/></svg>
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-green-50 text-green-600 mr-3 flex-shrink-0">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 2a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6H6zm7 1.5L18.5 9H13V3.5zM8 13h2v5H8v-5zm3-2h2v7h-2v-7zm3 3h2v4h-2v-4z"/></svg>
+                            </span>
+                            {% endif %}
+                            <div class="min-w-0">
+                                <a href="{{ url_for('preview', doc_id=doc.id) }}" class="text-sm font-medium text-gray-900 hover:text-se-600 truncate block">
+                                    {{ doc.original_name }}
+                                </a>
+                                {% if doc.description %}
+                                <p class="text-xs text-gray-500 truncate">{{ doc.description }}</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 hidden sm:table-cell">
+                        <span class="inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium
+                            {% if doc.file_type == 'word' %}bg-blue-100 text-blue-800{% else %}bg-green-100 text-green-800{% endif %}">
+                            {{ doc.file_type|upper }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-500 hidden md:table-cell">{{ doc.size_display }}</td>
+                    <td class="px-6 py-4 text-sm text-gray-500 hidden md:table-cell">{{ doc.uploader_name }}</td>
+                    <td class="px-6 py-4 text-sm text-gray-500 hidden lg:table-cell">{{ doc.uploaded_at[:16] }}</td>
+                    <td class="px-6 py-4 text-right">
+                        <div class="flex items-center justify-end space-x-2">
+                            <a href="{{ url_for('preview', doc_id=doc.id) }}" class="text-se-500 hover:text-se-700 text-sm font-medium">预览</a>
+                            <a href="{{ url_for('download', doc_id=doc.id) }}" class="text-gray-500 hover:text-gray-700 text-sm font-medium">下载</a>
+                            {% if current_user.is_admin or current_user.id == doc.uploaded_by %}
+                            <form method="POST" action="{{ url_for('delete_doc', doc_id=doc.id) }}" class="inline"
+                                onsubmit="return confirm('确定要删除这个文件吗？')">
+                                <button type="submit" class="text-red-500 hover:text-red-700 text-sm font-medium">删除</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="text-center py-20">
+    <svg class="mx-auto h-16 w-16 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+    </svg>
+    <h3 class="mt-4 text-lg font-medium text-gray-600">暂无文档</h3>
+    <p class="mt-1 text-sm text-gray-500">{% if search %}没有找到匹配的文档{% else %}点击上传按钮添加第一个文档{% endif %}</p>
+    {% if not search %}
+    <a href="{{ url_for('upload') }}" class="mt-4 inline-flex items-center px-4 py-2 bg-se-500 hover:bg-se-600 text-white rounded-lg transition">上传文档</a>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

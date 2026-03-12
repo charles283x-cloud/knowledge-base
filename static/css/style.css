@@ -1,0 +1,39 @@
+.word-preview img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 0.5rem;
+    margin: 1rem 0;
+}
+
+.word-preview table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+}
+
+.word-preview table td,
+.word-preview table th {
+    border: 1px solid #e5e7eb;
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+}
+
+.word-preview table th {
+    background-color: #f9fafb;
+    font-weight: 600;
+}
+
+.excel-table {
+    font-size: 0.875rem;
+}
+
+.excel-table td {
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#drop-zone.drag-over {
+    border-color: #0066cc;
+    background-color: #eff6ff;
+}

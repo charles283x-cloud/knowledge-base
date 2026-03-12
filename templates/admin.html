@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}用户管理{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-bold text-gray-800 mb-6">用户管理</h1>
+
+<div class="grid gap-6 lg:grid-cols-3">
+    <div class="lg:col-span-2">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                <h2 class="text-sm font-medium text-gray-700">用户列表（{{ users|length }}）</h2>
+            </div>
+            <div class="divide-y divide-gray-200">
+                {% for user in users %}
+                <div class="flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition">
+                    <div class="flex items-center">
+                        <div class="w-10 h-10 rounded-full bg-se-500 flex items-center justify-center text-white font-medium text-sm mr-3">
+                            {{ user.username[0]|upper }}
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-900">{{ user.username }}</p>
+                            <p class="text-xs text-gray-500">
+                                {% if user.is_admin %}管理员{% else %}普通用户{% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    {% if not user.is_admin %}
+                    <form method="POST" action="{{ url_for('delete_user', user_id=user.id) }}"
+                        onsubmit="return confirm('确定要删除用户 {{ user.username }} 吗？')">
+                        <button type="submit" class="text-sm text-red-500 hover:text-red-700 font-medium">删除</button>
+                    </form>
+                    {% else %}
+                    <span class="text-xs text-gray-400">不可删除</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 class="text-sm font-medium text-gray-700 mb-4">添加新用户</h2>
+            <form method="POST" action="{{ url_for('add_user') }}" class="space-y-4">
+                <div>
+                    <label for="username" class="block text-sm text-gray-600 mb-1">用户名</label>
+                    <input type="text" id="username" name="username" required
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-se-500 focus:border-se-500 outline-none transition text-sm"
+                        placeholder="输入用户名">
+                </div>
+                <div>
+                    <label for="password" class="block text-sm text-gray-600 mb-1">密码</label>
+                    <input type="password" id="password" name="password" required minlength="4"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-se-500 focus:border-se-500 outline-none transition text-sm"
+                        placeholder="至少4位">
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" id="is_admin" name="is_admin" value="1"
+                        class="h-4 w-4 text-se-500 border-gray-300 rounded focus:ring-se-500">
+                    <label for="is_admin" class="ml-2 text-sm text-gray-600">设为管理员</label>
+                </div>
+                <button type="submit"
+                    class="w-full bg-se-500 hover:bg-se-600 text-white font-medium py-2 px-4 rounded-lg transition text-sm shadow-sm">
+                    添加用户
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
