@@ -4,6 +4,7 @@ from datetime import datetime
 
 import mammoth
 import openpyxl
+from pptx import Presentation
 from flask import (
     Flask, render_template, request, redirect, url_for,
     flash, send_from_directory, abort, jsonify
@@ -17,7 +18,7 @@ from config import (
     SECRET_KEY, SQLALCHEMY_DATABASE_URI, UPLOAD_FOLDER,
     MAX_CONTENT_LENGTH, ALLOWED_EXTENSIONS
 )
-from models import Database, User, Document
+from models import Database, User, Document, Folder
 
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
@@ -45,11 +46,13 @@ def allowed_file(filename):
 
 def get_file_type(filename):
     ext = filename.rsplit('.', 1)[1].lower()
-    if ext == 'docx':
-        return 'word'
-    elif ext in ('xlsx', 'xls'):
-        return 'excel'
-    return 'unknown'
+    type_map = {
+        'docx': 'word',
+        'xlsx': 'excel', 'xls': 'excel',
+        'pdf': 'pdf',
+        'pptx': 'ppt', 'ppt': 'ppt',
+    }
+    return type_map.get(ext, 'unknown')
 
 
 # ---------- Auth Routes ----------
@@ -87,9 +90,99 @@ def logout():
 @login_required
 def index():
     search = request.args.get('q', '').strip()
-    documents = Document.get_all(db, search=search if search else None)
-    return render_template('index.html', documents=documents, search=search)
+    folder_id = request.args.get('folder', None, type=int)
 
+    current_folder = None
+    breadcrumbs = []
+    subfolders = []
+
+    if search:
+        documents = Document.get_all(db, search=search)
+    else:
+        documents = Document.get_all(db, folder_id=folder_id)
+        subfolders = Folder.get_children(db, folder_id)
+        if folder_id:
+            current_folder = Folder.get_by_id(db, folder_id)
+            breadcrumbs = Folder.get_breadcrumbs(db, folder_id)
+
+    all_folders = Folder.get_all(db)
+
+    return render_template('index.html',
+        documents=documents, search=search,
+        current_folder=current_folder, breadcrumbs=breadcrumbs,
+        subfolders=subfolders, all_folders=all_folders)
+
+
+# ---------- Folder Routes ----------
+
+@app.route('/folder/create', methods=['POST'])
+@login_required
+def create_folder():
+    name = request.form.get('name', '').strip()
+    parent_id = request.form.get('parent_id', None, type=int)
+
+    if not name:
+        flash('文件夹名称不能为空', 'error')
+    else:
+        Folder.create(db, name, current_user.id, parent_id)
+        flash(f'文件夹 "{name}" 创建成功', 'success')
+
+    if parent_id:
+        return redirect(url_for('index', folder=parent_id))
+    return redirect(url_for('index'))
+
+
+@app.route('/folder/rename/<int:folder_id>', methods=['POST'])
+@login_required
+def rename_folder(folder_id):
+    new_name = request.form.get('name', '').strip()
+    folder = Folder.get_by_id(db, folder_id)
+    if not folder:
+        abort(404)
+    if not new_name:
+        flash('文件夹名称不能为空', 'error')
+    else:
+        Folder.rename(db, folder_id, new_name)
+        flash('文件夹已重命名', 'success')
+
+    if folder.parent_id:
+        return redirect(url_for('index', folder=folder.parent_id))
+    return redirect(url_for('index'))
+
+
+@app.route('/folder/delete/<int:folder_id>', methods=['POST'])
+@login_required
+def delete_folder(folder_id):
+    folder = Folder.get_by_id(db, folder_id)
+    if not folder:
+        abort(404)
+    parent_id = folder.parent_id
+    Folder.delete(db, folder_id)
+    flash('文件夹已删除（文件已移至根目录）', 'success')
+
+    if parent_id:
+        return redirect(url_for('index', folder=parent_id))
+    return redirect(url_for('index'))
+
+
+@app.route('/doc/move/<int:doc_id>', methods=['POST'])
+@login_required
+def move_doc(doc_id):
+    doc = Document.get_by_id(db, doc_id)
+    if not doc:
+        abort(404)
+    folder_id = request.form.get('folder_id', None)
+    if folder_id == '' or folder_id == 'null':
+        folder_id = None
+    else:
+        folder_id = int(folder_id) if folder_id else None
+
+    Document.move_to_folder(db, doc_id, folder_id)
+    flash('文件已移动', 'success')
+    return redirect(request.referrer or url_for('index'))
+
+
+# ---------- Upload ----------
 
 @app.route('/upload', methods=['GET', 'POST'])
 @login_required
@@ -105,7 +198,7 @@ def upload():
             return redirect(request.url)
 
         if not allowed_file(file.filename):
-            flash('不支持的文件格式，仅允许 .docx / .xlsx / .xls', 'error')
+            flash('不支持的文件格式，仅允许 .docx / .xlsx / .xls / .pdf / .pptx', 'error')
             return redirect(request.url)
 
         original_name = file.filename
@@ -117,12 +210,19 @@ def upload():
         file_size = os.path.getsize(file_path)
         file_type = get_file_type(original_name)
         description = request.form.get('description', '').strip()
+        folder_id = request.form.get('folder_id', None, type=int)
 
-        Document.create(db, unique_name, original_name, file_type, file_size, current_user.id, description)
+        Document.create(db, unique_name, original_name, file_type, file_size,
+                        current_user.id, description, folder_id)
         flash('文件上传成功', 'success')
+
+        if folder_id:
+            return redirect(url_for('index', folder=folder_id))
         return redirect(url_for('index'))
 
-    return render_template('upload.html')
+    folder_id = request.args.get('folder', None, type=int)
+    all_folders = Folder.get_all(db)
+    return render_template('upload.html', all_folders=all_folders, current_folder_id=folder_id)
 
 
 # ---------- Document Preview ----------
@@ -140,6 +240,7 @@ def preview(doc_id):
 
     preview_content = ''
     sheets_data = None
+    slides_data = None
 
     if doc.file_type == 'word':
         try:
@@ -163,7 +264,42 @@ def preview(doc_id):
         except Exception as e:
             preview_content = f'<p class="text-red-500">文档预览失败: {str(e)}</p>'
 
-    return render_template('preview.html', doc=doc, preview_content=preview_content, sheets_data=sheets_data)
+    elif doc.file_type == 'pdf':
+        pass  # PDF rendered via iframe in template
+
+    elif doc.file_type == 'ppt':
+        try:
+            prs = Presentation(file_path)
+            slides_data = []
+            for i, slide in enumerate(prs.slides):
+                slide_content = {'number': i + 1, 'texts': [], 'title': ''}
+                for shape in slide.shapes:
+                    if shape.has_text_frame:
+                        for para in shape.text_frame.paragraphs:
+                            text = para.text.strip()
+                            if text:
+                                slide_content['texts'].append(text)
+                    if hasattr(shape, 'text') and shape.shape_type and shape == slide.shapes.title:
+                        slide_content['title'] = shape.text.strip()
+                if not slide_content['title'] and slide_content['texts']:
+                    slide_content['title'] = slide_content['texts'][0]
+                slides_data.append(slide_content)
+        except Exception as e:
+            preview_content = f'<p class="text-red-500">PPT 预览失败: {str(e)}</p>'
+
+    return render_template('preview.html', doc=doc,
+        preview_content=preview_content, sheets_data=sheets_data,
+        slides_data=slides_data)
+
+
+@app.route('/file/<int:doc_id>')
+@login_required
+def serve_file(doc_id):
+    """Serve file inline (for PDF iframe preview)."""
+    doc = Document.get_by_id(db, doc_id)
+    if not doc:
+        abort(404)
+    return send_from_directory(UPLOAD_FOLDER, doc.filename, as_attachment=False, download_name=doc.original_name)
 
 
 @app.route('/download/<int:doc_id>')
@@ -186,6 +322,7 @@ def delete_doc(doc_id):
         flash('没有权限删除此文件', 'error')
         return redirect(url_for('index'))
 
+    folder_id = doc.folder_id
     filename = Document.delete(db, doc_id)
     if filename:
         file_path = os.path.join(UPLOAD_FOLDER, filename)
@@ -193,6 +330,8 @@ def delete_doc(doc_id):
             os.remove(file_path)
 
     flash('文件已删除', 'success')
+    if folder_id:
+        return redirect(url_for('index', folder=folder_id))
     return redirect(url_for('index'))
 
 

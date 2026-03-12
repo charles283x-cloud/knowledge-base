@@ -12,7 +12,7 @@ UPLOAD_FOLDER = os.path.join(DATA_DIR, 'files')
 
 MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB
 
-ALLOWED_EXTENSIONS = {'docx', 'xlsx', 'xls'}
+ALLOWED_EXTENSIONS = {'docx', 'xlsx', 'xls', 'pdf', 'pptx', 'ppt'}
 
 ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'admin123')

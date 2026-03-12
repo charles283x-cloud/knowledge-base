@@ -3,20 +3,46 @@
 
 {% block content %}
 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-    <h1 class="text-2xl font-bold text-gray-800">文档列表</h1>
-    <div class="flex items-center gap-3 w-full sm:w-auto">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-800">
+            {% if current_folder %}{{ current_folder.name }}{% else %}文档列表{% endif %}
+        </h1>
+        {% if breadcrumbs %}
+        <nav class="flex items-center text-sm text-gray-500 mt-1 flex-wrap">
+            <a href="{{ url_for('index') }}" class="hover:text-se-500 transition">根目录</a>
+            {% for crumb in breadcrumbs %}
+            <svg class="w-4 h-4 mx-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+            {% if loop.last %}
+            <span class="text-gray-800 font-medium">{{ crumb.name }}</span>
+            {% else %}
+            <a href="{{ url_for('index', folder=crumb.id) }}" class="hover:text-se-500 transition">{{ crumb.name }}</a>
+            {% endif %}
+            {% endfor %}
+        </nav>
+        {% endif %}
+    </div>
+    <div class="flex items-center gap-2 w-full sm:w-auto flex-wrap">
         <form method="GET" class="flex-1 sm:flex-initial">
             <div class="relative">
                 <input type="text" name="q" value="{{ search }}" placeholder="搜索文档..."
-                    class="w-full sm:w-64 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-se-500 focus:border-se-500 outline-none transition">
+                    class="w-full sm:w-56 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-se-500 focus:border-se-500 outline-none transition text-sm">
                 <svg class="absolute left-3 top-2.5 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                 </svg>
             </div>
         </form>
-        <a href="{{ url_for('upload') }}"
-            class="inline-flex items-center px-4 py-2 bg-se-500 hover:bg-se-600 text-white font-medium rounded-lg transition shadow-sm whitespace-nowrap">
-            <svg class="w-5 h-5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <button onclick="document.getElementById('new-folder-modal').classList.remove('hidden')"
+            class="inline-flex items-center px-3 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition text-sm whitespace-nowrap">
+            <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+            </svg>
+            新建文件夹
+        </button>
+        <a href="{{ url_for('upload', folder=current_folder.id if current_folder else '') }}"
+            class="inline-flex items-center px-3 py-2 bg-se-500 hover:bg-se-600 text-white font-medium rounded-lg transition shadow-sm text-sm whitespace-nowrap">
+            <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
             </svg>
             上传
@@ -31,6 +57,39 @@
 </div>
 {% endif %}
 
+{# Subfolders #}
+{% if subfolders and not search %}
+<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-6">
+    {% for folder in subfolders %}
+    <div class="group relative bg-white rounded-xl border border-gray-200 hover:border-se-300 hover:shadow-sm transition p-4">
+        <a href="{{ url_for('index', folder=folder.id) }}" class="flex flex-col items-center text-center">
+            <svg class="w-10 h-10 text-yellow-400 mb-2" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M10 4H4a2 2 0 00-2 2v12a2 2 0 002 2h16a2 2 0 002-2V8a2 2 0 00-2-2h-8l-2-2z"/>
+            </svg>
+            <span class="text-sm text-gray-700 font-medium truncate w-full">{{ folder.name }}</span>
+        </a>
+        <div class="absolute top-2 right-2 hidden group-hover:flex items-center gap-1">
+            <button onclick="openRenameModal({{ folder.id }}, '{{ folder.name }}')"
+                class="p-1 text-gray-400 hover:text-se-500 rounded" title="重命名">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+            </button>
+            <form method="POST" action="{{ url_for('delete_folder', folder_id=folder.id) }}" class="inline"
+                onsubmit="return confirm('删除文件夹？其中的文件将移至根目录。')">
+                <button type="submit" class="p-1 text-gray-400 hover:text-red-500 rounded" title="删除">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{# Documents table #}
 {% if documents %}
 <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
     <div class="overflow-x-auto">
@@ -54,6 +113,14 @@
                             <span class="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-blue-50 text-blue-600 mr-3 flex-shrink-0">
                                 <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 2a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6H6zm7 1.5L18.5 9H13V3.5zM8 13h8v1.5H8V13zm0 3h8v1.5H8V16zm0-6h3v1.5H8V10z"/></svg>
                             </span>
+                            {% elif doc.file_type == 'pdf' %}
+                            <span class="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-red-50 text-red-600 mr-3 flex-shrink-0">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 2a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6H6zm7 1.5L18.5 9H13V3.5zM9 13.5c0-.8.7-1.5 1.5-1.5s1.5.7 1.5 1.5S11.3 15 10.5 15 9 14.3 9 13.5zM8 17h8v1H8v-1z"/></svg>
+                            </span>
+                            {% elif doc.file_type == 'ppt' %}
+                            <span class="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-orange-50 text-orange-600 mr-3 flex-shrink-0">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 2a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6H6zm7 1.5L18.5 9H13V3.5zM9 12h3a2 2 0 0 1 0 4h-1v2H9v-6z"/></svg>
+                            </span>
                             {% else %}
                             <span class="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-green-50 text-green-600 mr-3 flex-shrink-0">
                                 <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 2a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6H6zm7 1.5L18.5 9H13V3.5zM8 13h2v5H8v-5zm3-2h2v7h-2v-7zm3 3h2v4h-2v-4z"/></svg>
@@ -71,7 +138,10 @@
                     </td>
                     <td class="px-6 py-4 hidden sm:table-cell">
                         <span class="inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium
-                            {% if doc.file_type == 'word' %}bg-blue-100 text-blue-800{% else %}bg-green-100 text-green-800{% endif %}">
+                            {% if doc.file_type == 'word' %}bg-blue-100 text-blue-800
+                            {% elif doc.file_type == 'pdf' %}bg-red-100 text-red-800
+                            {% elif doc.file_type == 'ppt' %}bg-orange-100 text-orange-800
+                            {% else %}bg-green-100 text-green-800{% endif %}">
                             {{ doc.file_type|upper }}
                         </span>
                     </td>
@@ -82,6 +152,7 @@
                         <div class="flex items-center justify-end space-x-2">
                             <a href="{{ url_for('preview', doc_id=doc.id) }}" class="text-se-500 hover:text-se-700 text-sm font-medium">预览</a>
                             <a href="{{ url_for('download', doc_id=doc.id) }}" class="text-gray-500 hover:text-gray-700 text-sm font-medium">下载</a>
+                            <button onclick="openMoveModal({{ doc.id }})" class="text-gray-500 hover:text-gray-700 text-sm font-medium">移动</button>
                             {% if current_user.is_admin or current_user.id == doc.uploaded_by %}
                             <form method="POST" action="{{ url_for('delete_doc', doc_id=doc.id) }}" class="inline"
                                 onsubmit="return confirm('确定要删除这个文件吗？')">
@@ -96,7 +167,7 @@
         </table>
     </div>
 </div>
-{% else %}
+{% elif not subfolders %}
 <div class="text-center py-20">
     <svg class="mx-auto h-16 w-16 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
@@ -108,4 +179,78 @@
     {% endif %}
 </div>
 {% endif %}
+
+{# New Folder Modal #}
+<div id="new-folder-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onclick="if(event.target===this)this.classList.add('hidden')">
+    <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm mx-4">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">新建文件夹</h3>
+        <form method="POST" action="{{ url_for('create_folder') }}">
+            {% if current_folder %}
+            <input type="hidden" name="parent_id" value="{{ current_folder.id }}">
+            {% endif %}
+            <input type="text" name="name" required placeholder="文件夹名称"
+                class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-se-500 focus:border-se-500 outline-none transition mb-4">
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="this.closest('.fixed').classList.add('hidden')"
+                    class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm">取消</button>
+                <button type="submit"
+                    class="px-4 py-2 bg-se-500 hover:bg-se-600 text-white rounded-lg transition text-sm">创建</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{# Rename Folder Modal #}
+<div id="rename-folder-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onclick="if(event.target===this)this.classList.add('hidden')">
+    <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm mx-4">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">重命名文件夹</h3>
+        <form id="rename-form" method="POST">
+            <input type="text" id="rename-input" name="name" required
+                class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-se-500 focus:border-se-500 outline-none transition mb-4">
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="this.closest('.fixed').classList.add('hidden')"
+                    class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm">取消</button>
+                <button type="submit"
+                    class="px-4 py-2 bg-se-500 hover:bg-se-600 text-white rounded-lg transition text-sm">保存</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{# Move Document Modal #}
+<div id="move-doc-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onclick="if(event.target===this)this.classList.add('hidden')">
+    <div class="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm mx-4">
+        <h3 class="text-lg font-semibold text-gray-800 mb-4">移动文件到...</h3>
+        <form id="move-form" method="POST">
+            <select id="move-folder-select" name="folder_id"
+                class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-se-500 focus:border-se-500 outline-none transition mb-4">
+                <option value="null">根目录</option>
+                {% for f in all_folders %}
+                <option value="{{ f.id }}">{{ f.name }}</option>
+                {% endfor %}
+            </select>
+            <div class="flex justify-end gap-2">
+                <button type="button" onclick="this.closest('.fixed').classList.add('hidden')"
+                    class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm">取消</button>
+                <button type="submit"
+                    class="px-4 py-2 bg-se-500 hover:bg-se-600 text-white rounded-lg transition text-sm">移动</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function openRenameModal(folderId, currentName) {
+    document.getElementById('rename-form').action = '/folder/rename/' + folderId;
+    document.getElementById('rename-input').value = currentName;
+    document.getElementById('rename-folder-modal').classList.remove('hidden');
+    document.getElementById('rename-input').focus();
+}
+function openMoveModal(docId) {
+    document.getElementById('move-form').action = '/doc/move/' + docId;
+    document.getElementById('move-doc-modal').classList.remove('hidden');
+}
+</script>
 {% endblock %}

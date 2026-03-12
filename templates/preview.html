@@ -5,11 +5,14 @@
 <div class="mb-6">
     <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-            <a href="{{ url_for('index') }}" class="text-sm text-gray-500 hover:text-se-500 transition mb-1 inline-block">&larr; 返回文档列表</a>
+            <a href="{{ url_for('index', folder=doc.folder_id or '') }}" class="text-sm text-gray-500 hover:text-se-500 transition mb-1 inline-block">&larr; 返回文档列表</a>
             <h1 class="text-2xl font-bold text-gray-800">{{ doc.original_name }}</h1>
-            <div class="flex items-center gap-4 mt-2 text-sm text-gray-500">
+            <div class="flex items-center gap-4 mt-2 text-sm text-gray-500 flex-wrap">
                 <span class="inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium
-                    {% if doc.file_type == 'word' %}bg-blue-100 text-blue-800{% else %}bg-green-100 text-green-800{% endif %}">
+                    {% if doc.file_type == 'word' %}bg-blue-100 text-blue-800
+                    {% elif doc.file_type == 'pdf' %}bg-red-100 text-red-800
+                    {% elif doc.file_type == 'ppt' %}bg-orange-100 text-orange-800
+                    {% else %}bg-green-100 text-green-800{% endif %}">
                     {{ doc.file_type|upper }}
                 </span>
                 <span>{{ doc.size_display }}</span>
@@ -35,6 +38,7 @@
     <div class="p-6 sm:p-8 prose prose-sm max-w-none word-preview">
         {{ preview_content|safe }}
     </div>
+
     {% elif doc.file_type == 'excel' and sheets_data %}
     <div class="p-4">
         {% if sheets_data|length > 1 %}
@@ -72,9 +76,48 @@
         </div>
         {% endfor %}
     </div>
+
+    {% elif doc.file_type == 'pdf' %}
+    <div class="w-full" style="height: 85vh;">
+        <iframe src="{{ url_for('serve_file', doc_id=doc.id) }}" class="w-full h-full border-0" type="application/pdf">
+            <p class="p-8 text-center text-gray-500">
+                你的浏览器不支持 PDF 预览，请
+                <a href="{{ url_for('download', doc_id=doc.id) }}" class="text-se-500 hover:underline">下载文件</a>
+                查看。
+            </p>
+        </iframe>
+    </div>
+
+    {% elif doc.file_type == 'ppt' and slides_data %}
+    <div class="p-4 sm:p-6 space-y-4">
+        {% for slide in slides_data %}
+        <div class="border border-gray-200 rounded-lg overflow-hidden">
+            <div class="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center">
+                <span class="inline-flex items-center justify-center w-6 h-6 rounded bg-orange-100 text-orange-700 text-xs font-bold mr-2">{{ slide.number }}</span>
+                <span class="text-sm font-medium text-gray-700">
+                    {% if slide.title %}{{ slide.title }}{% else %}幻灯片 {{ slide.number }}{% endif %}
+                </span>
+            </div>
+            <div class="p-4 space-y-2">
+                {% if slide.texts %}
+                    {% for text in slide.texts %}
+                    <p class="text-sm text-gray-700">{{ text }}</p>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-sm text-gray-400 italic">（无文字内容）</p>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
     {% else %}
     <div class="p-8 text-center">
-        {{ preview_content|safe }}
+        {% if preview_content %}
+            {{ preview_content|safe }}
+        {% else %}
+            <p class="text-gray-500">暂不支持此文件类型的预览，请下载查看。</p>
+        {% endif %}
     </div>
     {% endif %}
 </div>
