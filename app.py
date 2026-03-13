@@ -362,7 +362,7 @@ def contact_api():
     if not data:
         return jsonify({'success': False, 'error': 'Invalid request'}), 400
 
-    required = ['company', 'name', 'phone', 'email', 'message']
+    required = ['company', 'name', 'email', 'message']
     for field in required:
         if not data.get(field, '').strip():
             return jsonify({'success': False, 'error': f'Missing field: {field}'}), 400
