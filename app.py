@@ -18,7 +18,7 @@ from config import (
     SECRET_KEY, SQLALCHEMY_DATABASE_URI, UPLOAD_FOLDER,
     MAX_CONTENT_LENGTH, ALLOWED_EXTENSIONS
 )
-from models import Database, User, Document, Folder
+from models import Database, User, Document, Folder, ContactMessage
 
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
@@ -354,6 +354,32 @@ def delete_doc(doc_id):
     return redirect(url_for('index'))
 
 
+# ---------- Contact API ----------
+
+@app.route('/api/contact', methods=['POST'])
+def contact_api():
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({'success': False, 'error': 'Invalid request'}), 400
+
+    required = ['company', 'name', 'phone', 'email', 'message']
+    for field in required:
+        if not data.get(field, '').strip():
+            return jsonify({'success': False, 'error': f'Missing field: {field}'}), 400
+
+    ContactMessage.create(
+        db,
+        company=data['company'].strip(),
+        name=data['name'].strip(),
+        position=data.get('position', '').strip(),
+        category=data.get('category', '').strip(),
+        phone=data['phone'].strip(),
+        email=data['email'].strip(),
+        message=data['message'].strip()
+    )
+    return jsonify({'success': True})
+
+
 # ---------- Admin Routes ----------
 
 @app.route('/admin')
@@ -364,7 +390,8 @@ def admin():
         return redirect(url_for('index'))
 
     users = User.get_all(db)
-    return render_template('admin.html', users=users)
+    messages = ContactMessage.get_all(db)
+    return render_template('admin.html', users=users, messages=messages)
 
 
 @app.route('/admin/add_user', methods=['POST'])
@@ -405,6 +432,25 @@ def delete_user(user_id):
 
     User.delete(db, user_id)
     flash('用户已删除', 'success')
+    return redirect(url_for('admin'))
+
+
+@app.route('/admin/message/read/<int:msg_id>', methods=['POST'])
+@login_required
+def mark_message_read(msg_id):
+    if not current_user.is_admin:
+        abort(403)
+    ContactMessage.mark_read(db, msg_id)
+    return redirect(url_for('admin'))
+
+
+@app.route('/admin/message/delete/<int:msg_id>', methods=['POST'])
+@login_required
+def delete_message(msg_id):
+    if not current_user.is_admin:
+        abort(403)
+    ContactMessage.delete(db, msg_id)
+    flash('留言已删除', 'success')
     return redirect(url_for('admin'))
 
 

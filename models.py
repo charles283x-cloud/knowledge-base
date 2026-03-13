@@ -36,6 +36,18 @@ class Database:
                 FOREIGN KEY (parent_id) REFERENCES folders(id),
                 FOREIGN KEY (created_by) REFERENCES users(id)
             );
+            CREATE TABLE IF NOT EXISTS contact_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                company TEXT NOT NULL,
+                name TEXT NOT NULL,
+                position TEXT DEFAULT '',
+                category TEXT DEFAULT '',
+                phone TEXT NOT NULL,
+                email TEXT NOT NULL,
+                message TEXT NOT NULL,
+                is_read INTEGER DEFAULT 0,
+                created_at TEXT DEFAULT (datetime('now'))
+            );
             CREATE TABLE IF NOT EXISTS documents (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 filename TEXT NOT NULL,
@@ -199,6 +211,60 @@ class Folder:
         conn.execute("UPDATE folders SET name = ? WHERE id = ?", (new_name, folder_id))
         conn.commit()
         conn.close()
+
+
+class ContactMessage:
+    def __init__(self, id, company, name, position, category, phone, email, message, is_read, created_at):
+        self.id = id
+        self.company = company
+        self.name = name
+        self.position = position
+        self.category = category
+        self.phone = phone
+        self.email = email
+        self.message = message
+        self.is_read = bool(is_read)
+        self.created_at = created_at
+
+    @staticmethod
+    def create(db, company, name, position, category, phone, email, message):
+        conn = db.get_connection()
+        conn.execute(
+            "INSERT INTO contact_messages (company, name, position, category, phone, email, message) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (company, name, position, category, phone, email, message)
+        )
+        conn.commit()
+        conn.close()
+
+    @staticmethod
+    def get_all(db):
+        conn = db.get_connection()
+        rows = conn.execute("SELECT * FROM contact_messages ORDER BY created_at DESC").fetchall()
+        conn.close()
+        return [ContactMessage(r['id'], r['company'], r['name'], r['position'], r['category'],
+                r['phone'], r['email'], r['message'], r['is_read'], r['created_at']) for r in rows]
+
+    @staticmethod
+    def mark_read(db, msg_id):
+        conn = db.get_connection()
+        conn.execute("UPDATE contact_messages SET is_read = 1 WHERE id = ?", (msg_id,))
+        conn.commit()
+        conn.close()
+
+    @staticmethod
+    def delete(db, msg_id):
+        conn = db.get_connection()
+        conn.execute("DELETE FROM contact_messages WHERE id = ?", (msg_id,))
+        conn.commit()
+        conn.close()
+
+    @staticmethod
+    def unread_count(db):
+        conn = db.get_connection()
+        row = conn.execute("SELECT COUNT(*) as c FROM contact_messages WHERE is_read = 0").fetchone()
+        conn.close()
+        return row['c']
 
 
 class Document:

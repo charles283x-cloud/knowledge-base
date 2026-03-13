@@ -67,4 +67,67 @@
         </div>
     </div>
 </div>
+
+<!-- Contact Messages -->
+<h2 class="text-2xl font-bold text-gray-800 mt-10 mb-6">
+    客户留言
+    {% if messages %}
+    <span class="text-sm font-normal text-gray-500 ml-2">
+        共 {{ messages|length }} 条
+        {% set unread = messages|selectattr('is_read', 'equalto', false)|list|length %}
+        {% if unread > 0 %}
+        · <span class="text-red-500 font-medium">{{ unread }} 条未读</span>
+        {% endif %}
+    </span>
+    {% endif %}
+</h2>
+
+{% if messages %}
+<div class="space-y-4">
+    {% for msg in messages %}
+    <div class="bg-white rounded-xl shadow-sm border {{ 'border-blue-300 ring-1 ring-blue-100' if not msg.is_read else 'border-gray-200' }} overflow-hidden">
+        <div class="px-6 py-4">
+            <div class="flex items-start justify-between">
+                <div class="flex-1">
+                    <div class="flex items-center gap-3 mb-2 flex-wrap">
+                        {% if not msg.is_read %}
+                        <span class="inline-block w-2 h-2 bg-red-500 rounded-full flex-shrink-0"></span>
+                        {% endif %}
+                        <span class="font-bold text-gray-900">{{ msg.company }}</span>
+                        <span class="text-gray-500 text-sm">{{ msg.name }}</span>
+                        {% if msg.position %}
+                        <span class="text-gray-400 text-sm">· {{ msg.position }}</span>
+                        {% endif %}
+                        {% if msg.category %}
+                        <span class="inline-block px-2 py-0.5 bg-blue-50 text-blue-600 text-xs rounded font-medium">{{ msg.category }}</span>
+                        {% endif %}
+                    </div>
+                    <p class="text-gray-700 text-sm whitespace-pre-line mb-3">{{ msg.message }}</p>
+                    <div class="flex items-center gap-4 text-xs text-gray-400">
+                        <span>Tel: {{ msg.phone }}</span>
+                        <span>Mail: {{ msg.email }}</span>
+                        <span>{{ msg.created_at }}</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 ml-4 flex-shrink-0">
+                    {% if not msg.is_read %}
+                    <form method="POST" action="{{ url_for('mark_message_read', msg_id=msg.id) }}">
+                        <button type="submit" class="text-xs text-blue-500 hover:text-blue-700 font-medium px-2 py-1 border border-blue-300 rounded hover:bg-blue-50 transition">标记已读</button>
+                    </form>
+                    {% endif %}
+                    <form method="POST" action="{{ url_for('delete_message', msg_id=msg.id) }}"
+                        onsubmit="return confirm('确定要删除这条留言吗？')">
+                        <button type="submit" class="text-xs text-red-500 hover:text-red-700 font-medium px-2 py-1 border border-red-200 rounded hover:bg-red-50 transition">删除</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center text-gray-400">
+    暂无客户留言
+</div>
+{% endif %}
 {% endblock %}
