@@ -24,6 +24,25 @@ app = Flask(__name__)
 app.secret_key = SECRET_KEY
 app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
 
+APP_PREFIX = os.environ.get('APP_PREFIX', '')
+
+class PrefixMiddleware:
+    """Strip and set SCRIPT_NAME so Flask generates correct URLs behind a subpath."""
+    def __init__(self, wsgi_app, prefix=''):
+        self.wsgi_app = wsgi_app
+        self.prefix = prefix
+
+    def __call__(self, environ, start_response):
+        if self.prefix:
+            environ['SCRIPT_NAME'] = self.prefix
+            path = environ.get('PATH_INFO', '')
+            if path.startswith(self.prefix):
+                environ['PATH_INFO'] = path[len(self.prefix):] or '/'
+        return self.wsgi_app(environ, start_response)
+
+if APP_PREFIX:
+    app.wsgi_app = PrefixMiddleware(app.wsgi_app, prefix=APP_PREFIX)
+
 db_path = SQLALCHEMY_DATABASE_URI.replace('sqlite:///', '')
 db = Database(db_path)
 
