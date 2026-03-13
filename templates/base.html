@@ -36,6 +36,7 @@
                         <a href="{{ url_for('upload') }}" class="px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-se-600 hover:bg-gray-50 transition">上传文档</a>
                         {% if current_user.is_admin %}
                         <a href="{{ url_for('admin') }}" class="px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-se-600 hover:bg-gray-50 transition">用户管理</a>
+                        <a href="{{ url_for('admin_news') }}" class="px-3 py-2 rounded-md text-sm font-medium text-gray-600 hover:text-se-600 hover:bg-gray-50 transition">新闻管理</a>
                         {% endif %}
                     </div>
                 </div>
