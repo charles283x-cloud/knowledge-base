@@ -2,7 +2,12 @@
 {% block title %}用户管理{% endblock %}
 
 {% block content %}
-<h1 class="text-2xl font-bold text-gray-800 mb-6">用户管理</h1>
+<div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold text-gray-800">管理后台</h1>
+    <a href="{{ url_for('admin_news') }}" class="bg-se-500 hover:bg-se-600 text-white font-medium py-2 px-4 rounded-lg transition text-sm shadow-sm">
+        新闻管理 →
+    </a>
+</div>
 
 <div class="grid gap-6 lg:grid-cols-3">
     <div class="lg:col-span-2">

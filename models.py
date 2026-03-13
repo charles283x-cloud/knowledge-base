@@ -36,6 +36,19 @@ class Database:
                 FOREIGN KEY (parent_id) REFERENCES folders(id),
                 FOREIGN KEY (created_by) REFERENCES users(id)
             );
+            CREATE TABLE IF NOT EXISTS news_articles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title_ja TEXT NOT NULL,
+                title_zh TEXT DEFAULT '',
+                content_ja TEXT NOT NULL,
+                content_zh TEXT DEFAULT '',
+                category TEXT DEFAULT 'news',
+                published INTEGER DEFAULT 1,
+                created_by INTEGER NOT NULL,
+                created_at TEXT DEFAULT (datetime('now')),
+                updated_at TEXT DEFAULT (datetime('now')),
+                FOREIGN KEY (created_by) REFERENCES users(id)
+            );
             CREATE TABLE IF NOT EXISTS contact_messages (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 company TEXT NOT NULL,
@@ -209,6 +222,82 @@ class Folder:
     def rename(db, folder_id, new_name):
         conn = db.get_connection()
         conn.execute("UPDATE folders SET name = ? WHERE id = ?", (new_name, folder_id))
+        conn.commit()
+        conn.close()
+
+
+class NewsArticle:
+    def __init__(self, id, title_ja, title_zh, content_ja, content_zh, category, published, created_by, created_at, updated_at):
+        self.id = id
+        self.title_ja = title_ja
+        self.title_zh = title_zh or ''
+        self.content_ja = content_ja
+        self.content_zh = content_zh or ''
+        self.category = category
+        self.published = bool(published)
+        self.created_by = created_by
+        self.created_at = created_at
+        self.updated_at = updated_at
+
+    @staticmethod
+    def create(db, title_ja, title_zh, content_ja, content_zh, category, created_by, published=1):
+        conn = db.get_connection()
+        cursor = conn.execute(
+            "INSERT INTO news_articles (title_ja, title_zh, content_ja, content_zh, category, created_by, published) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (title_ja, title_zh, content_ja, content_zh, category, created_by, int(published))
+        )
+        article_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        return article_id
+
+    @staticmethod
+    def update(db, article_id, title_ja, title_zh, content_ja, content_zh, category, published):
+        conn = db.get_connection()
+        conn.execute(
+            "UPDATE news_articles SET title_ja=?, title_zh=?, content_ja=?, content_zh=?, "
+            "category=?, published=?, updated_at=datetime('now') WHERE id=?",
+            (title_ja, title_zh, content_ja, content_zh, category, int(published), article_id)
+        )
+        conn.commit()
+        conn.close()
+
+    @staticmethod
+    def get_by_id(db, article_id):
+        conn = db.get_connection()
+        row = conn.execute("SELECT * FROM news_articles WHERE id = ?", (article_id,)).fetchone()
+        conn.close()
+        if row:
+            return NewsArticle(row['id'], row['title_ja'], row['title_zh'], row['content_ja'],
+                    row['content_zh'], row['category'], row['published'], row['created_by'],
+                    row['created_at'], row['updated_at'])
+        return None
+
+    @staticmethod
+    def get_published(db, limit=50):
+        conn = db.get_connection()
+        rows = conn.execute(
+            "SELECT * FROM news_articles WHERE published = 1 ORDER BY created_at DESC LIMIT ?", (limit,)
+        ).fetchall()
+        conn.close()
+        return [NewsArticle(r['id'], r['title_ja'], r['title_zh'], r['content_ja'],
+                r['content_zh'], r['category'], r['published'], r['created_by'],
+                r['created_at'], r['updated_at']) for r in rows]
+
+    @staticmethod
+    def get_all(db):
+        conn = db.get_connection()
+        rows = conn.execute("SELECT * FROM news_articles ORDER BY created_at DESC").fetchall()
+        conn.close()
+        return [NewsArticle(r['id'], r['title_ja'], r['title_zh'], r['content_ja'],
+                r['content_zh'], r['category'], r['published'], r['created_by'],
+                r['created_at'], r['updated_at']) for r in rows]
+
+    @staticmethod
+    def delete(db, article_id):
+        conn = db.get_connection()
+        conn.execute("DELETE FROM news_articles WHERE id = ?", (article_id,))
         conn.commit()
         conn.close()
 

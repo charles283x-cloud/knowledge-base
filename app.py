@@ -18,7 +18,7 @@ from config import (
     SECRET_KEY, SQLALCHEMY_DATABASE_URI, UPLOAD_FOLDER,
     MAX_CONTENT_LENGTH, ALLOWED_EXTENSIONS
 )
-from models import Database, User, Document, Folder, ContactMessage
+from models import Database, User, Document, Folder, ContactMessage, NewsArticle
 
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
@@ -378,6 +378,106 @@ def contact_api():
         message=data['message'].strip()
     )
     return jsonify({'success': True})
+
+
+# ---------- News API (public) ----------
+
+@app.route('/api/news')
+def news_api():
+    articles = NewsArticle.get_published(db)
+    result = []
+    for a in articles:
+        result.append({
+            'id': a.id,
+            'title_ja': a.title_ja,
+            'title_zh': a.title_zh,
+            'content_ja': a.content_ja,
+            'content_zh': a.content_zh,
+            'category': a.category,
+            'created_at': a.created_at,
+        })
+    return jsonify(result)
+
+
+@app.route('/api/news/<int:article_id>')
+def news_detail_api(article_id):
+    a = NewsArticle.get_by_id(db, article_id)
+    if not a or not a.published:
+        return jsonify({'error': 'not found'}), 404
+    return jsonify({
+        'id': a.id,
+        'title_ja': a.title_ja,
+        'title_zh': a.title_zh,
+        'content_ja': a.content_ja,
+        'content_zh': a.content_zh,
+        'category': a.category,
+        'created_at': a.created_at,
+    })
+
+
+# ---------- News Admin ----------
+
+@app.route('/admin/news')
+@login_required
+def admin_news():
+    if not current_user.is_admin:
+        abort(403)
+    articles = NewsArticle.get_all(db)
+    return render_template('admin_news.html', articles=articles)
+
+
+@app.route('/admin/news/create', methods=['GET', 'POST'])
+@login_required
+def create_news():
+    if not current_user.is_admin:
+        abort(403)
+    if request.method == 'POST':
+        NewsArticle.create(
+            db,
+            title_ja=request.form.get('title_ja', '').strip(),
+            title_zh=request.form.get('title_zh', '').strip(),
+            content_ja=request.form.get('content_ja', '').strip(),
+            content_zh=request.form.get('content_zh', '').strip(),
+            category=request.form.get('category', 'news'),
+            created_by=current_user.id,
+            published=request.form.get('published') == '1'
+        )
+        flash('新闻发布成功', 'success')
+        return redirect(url_for('admin_news'))
+    return render_template('admin_news_form.html', article=None)
+
+
+@app.route('/admin/news/edit/<int:article_id>', methods=['GET', 'POST'])
+@login_required
+def edit_news(article_id):
+    if not current_user.is_admin:
+        abort(403)
+    article = NewsArticle.get_by_id(db, article_id)
+    if not article:
+        abort(404)
+    if request.method == 'POST':
+        NewsArticle.update(
+            db, article_id,
+            title_ja=request.form.get('title_ja', '').strip(),
+            title_zh=request.form.get('title_zh', '').strip(),
+            content_ja=request.form.get('content_ja', '').strip(),
+            content_zh=request.form.get('content_zh', '').strip(),
+            category=request.form.get('category', 'news'),
+            published=request.form.get('published') == '1'
+        )
+        flash('新闻已更新', 'success')
+        return redirect(url_for('admin_news'))
+    return render_template('admin_news_form.html', article=article)
+
+
+@app.route('/admin/news/delete/<int:article_id>', methods=['POST'])
+@login_required
+def delete_news(article_id):
+    if not current_user.is_admin:
+        abort(403)
+    NewsArticle.delete(db, article_id)
+    flash('新闻已删除', 'success')
+    return redirect(url_for('admin_news'))
 
 
 # ---------- Admin Routes ----------
